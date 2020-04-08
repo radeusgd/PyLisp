@@ -1,5 +1,15 @@
+from typing import Callable, TypeVar, List
+
+T = TypeVar('T')
+
+
 class Tree(object):
-    def visit(self, symbol, intlit, strlit, exprlist):
+    def visit(self,
+              symbol: Callable[["Symbol"], T],
+              intlit: Callable[["IntLiteral"], T],
+              strlit: Callable[["StringLiteral"], T],
+              exprlist: Callable[["ExpressionList"], T]
+              ) -> T:
         raise NotImplementedError()
 
     def __str__(self):
@@ -11,32 +21,62 @@ class Symbol(Tree):
         super().__init__()
         self.name = name
 
-    def visit(self, symbol, intlit, strlit, exprlist):
-        symbol(self)
+    def visit(self,
+              symbol: Callable[["Symbol"], T],
+              intlit: Callable[["IntLiteral"], T],
+              strlit: Callable[["StringLiteral"], T],
+              exprlist: Callable[["ExpressionList"], T]
+              ) -> T:
+        return symbol(self)
 
     def __str__(self):
         return f"Symbol({self.name})"
 
 
-class IntLiteral(Tree):
+class Literal(Tree):
     def __init__(self, value):
         super().__init__()
         self.value = value
 
-    def visit(self, symbol, intlit, strlit, exprlist):
-        intlit(self)
+    def visit(self,
+              symbol: Callable[["Symbol"], T],
+              intlit: Callable[["IntLiteral"], T],
+              strlit: Callable[["StringLiteral"], T],
+              exprlist: Callable[["ExpressionList"], T]
+              ) -> T:
+        raise NotImplementedError()
+
+    def __str__(self):
+        raise NotImplementedError()
+
+
+class IntLiteral(Literal):
+    def __init__(self, value):
+        super().__init__(value)
+
+    def visit(self,
+              symbol: Callable[["Symbol"], T],
+              intlit: Callable[["IntLiteral"], T],
+              strlit: Callable[["StringLiteral"], T],
+              exprlist: Callable[["ExpressionList"], T]
+              ) -> T:
+        return intlit(self)
 
     def __str__(self):
         return f"IntLiteral({str(self.value)})"
 
 
-class StringLiteral(Tree):
+class StringLiteral(Literal):
     def __init__(self, value):
-        super().__init__()
-        self.value = value
+        super().__init__(value)
 
-    def visit(self, symbol, intlit, strlit, exprlist):
-        strlit(self)
+    def visit(self,
+              symbol: Callable[["Symbol"], T],
+              intlit: Callable[["IntLiteral"], T],
+              strlit: Callable[["StringLiteral"], T],
+              exprlist: Callable[["ExpressionList"], T]
+              ) -> T:
+        return strlit(self)
 
     def __str__(self):
         return f"StringLiteral('{self.value}')"
@@ -47,9 +87,23 @@ class ExpressionList(Tree):
         super().__init__()
         self.values = values
 
-    def visit(self, symbol, intlit, strlit, exprlist):
-        exprlist(self)
+    def visit(self,
+              symbol: Callable[["Symbol"], T],
+              intlit: Callable[["IntLiteral"], T],
+              strlit: Callable[["StringLiteral"], T],
+              exprlist: Callable[["ExpressionList"], T]
+              ) -> T:
+        return exprlist(self)
 
     def __str__(self):
         values = ", ".join(map(str, self.values))
         return f"ExpressionList({values})"
+
+    def head(self) -> Tree:
+        return self.values[0]
+
+    def tail(self) -> List[Tree]:
+        return self.values[1:]
+
+    def isempty(self) -> bool:
+        return len(self.values) == 0
