@@ -13,7 +13,7 @@ class FuncBuiltin(Builtin):
         return self.func(*args, **kwargs)
 
 
-builtins = {}
+builtins = {"false": False, "true": True, "nil": None}
 
 
 def register_builtin(arity, name=None):
@@ -58,7 +58,7 @@ def letrec(env: Environment, bindings, body):
     return interpret(body, inner_env)
 
 
-@register_builtin(2)
+@register_builtin(2, "define!")
 def define(env: Environment, name, body):
     if not isinstance(name, Symbol):
         raise LispError("You can only bind to symbols")
@@ -71,32 +71,32 @@ def plus(env: Environment, *args):
     return sum(interpret_list(args, env))
 
 
-@register_builtin(2, "-")
-def minus(env: Environment, a, b):
-    a_val = interpret(a, env)
-    b_val = interpret(b, env)
-    return a_val - b_val
+def register_eager_binary_builtin(name, func):
+    def helper(env: Environment, a, b):
+        a_val = interpret(a, env)
+        b_val = interpret(b, env)
+        return func(a_val, b_val)
+    register_builtin(2, name)(helper)
 
 
-@register_builtin(2, "*")
-def times(env: Environment, a, b):
-    a_val = interpret(a, env)
-    b_val = interpret(b, env)
-    return a_val * b_val
+register_eager_binary_builtin("-", lambda a, b: a - b)
+register_eager_binary_builtin("*", lambda a, b: a * b)
+register_eager_binary_builtin("/", lambda a, b: a / b)
+register_eager_binary_builtin("mod", lambda a, b: a % b)
+register_eager_binary_builtin("=", lambda a, b: a == b)
+register_eager_binary_builtin("<=", lambda a, b: a <= b)
+register_eager_binary_builtin(">=", lambda a, b: a >= b)
+register_eager_binary_builtin("<", lambda a, b: a < b)
+register_eager_binary_builtin(">", lambda a, b: a > b)
 
 
-@register_builtin(2, "/")
-def div(env: Environment, a, b):
-    a_val = interpret(a, env)
-    b_val = interpret(b, env)
-    return a_val / b_val
-
-
-@register_builtin(2)
-def mod(env: Environment, a, b):
-    a_val = interpret(a, env)
-    b_val = interpret(b, env)
-    return a_val % b_val
+@register_builtin(3, "if")
+def conditional(env: Environment, cond, branch_true, branch_else):
+    cond = interpret(cond, env)
+    if cond:
+        return interpret(branch_true, env)
+    else:
+        return interpret(branch_else, env)
 
 
 @register_builtin(2)
