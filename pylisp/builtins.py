@@ -1,6 +1,6 @@
 from pylisp.ast import Symbol, ExpressionList
 from pylisp.environment import Environment
-from pylisp.errors import OutOfBounds, WrongOperatorUsage
+from pylisp.errors import OutOfBounds, WrongOperatorUsage, LispError
 from pylisp.interpreter import Builtin, interpret, interpret_list
 
 
@@ -43,12 +43,12 @@ def let(env: Environment, binding, body):
 def letrec(env: Environment, bindings, body):
     def process_binding(binding):
         if not isinstance(binding, ExpressionList):
-            raise RuntimeError("Wrong let form")
+            raise LispError("Wrong let form")
         if len(binding) != 2:
-            raise RuntimeError("Wrong let form")
+            raise LispError("Wrong let form")
         [symb, inner] = binding.values
         if not isinstance(symb, Symbol):
-            raise RuntimeError("You can only bind to symbols")
+            raise LispError("You can only bind to symbols")
         return symb.name, inner
 
     bindings = list(map(process_binding, bindings.values))
@@ -61,7 +61,7 @@ def letrec(env: Environment, bindings, body):
 @register_builtin(2)
 def define(env: Environment, name, body):
     if not isinstance(name, Symbol):
-        raise RuntimeError("You can only bind to symbols")
+        raise LispError("You can only bind to symbols")
     inner = interpret(body, env)
     env.update(name.name, inner)
 
@@ -97,6 +97,27 @@ def mod(env: Environment, a, b):
     a_val = interpret(a, env)
     b_val = interpret(b, env)
     return a_val % b_val
+
+
+@register_builtin(2)
+def fun(env: Environment, args, body):
+    def process_arg(arg):
+        if not isinstance(arg, Symbol):
+            raise LispError("Function arguments in the definition have to be symbols")
+        return arg.name
+    if not isinstance(args, ExpressionList):
+        raise LispError("Function needs an argument list")
+    args = list(map(process_arg, args.values))
+    function_env = env.copy()  # copy to ensure this environment is not affected by new mutations
+
+    def closure(arg_values):
+        if len(arg_values) != len(args):
+            raise LispError("Function applied to a wrong number of arguments")
+        invokation_env = function_env.copy() # copy to preserve the closure for future calls
+        for arg_name, arg_value in zip(args, arg_values):
+            invokation_env.update(arg_name, arg_value)
+        return interpret(body, invokation_env)
+    return closure
 
 
 class Block:

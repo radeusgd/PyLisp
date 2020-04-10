@@ -48,11 +48,14 @@ def interpret_sexpr(sexpr: ExpressionList, env: Environment):
             raise WrongOperatorUsage(f"{op.name} expects {op.arity} arguments but was given {len(args)})")
         return op(env, *args.values)
 
-    # TODO add a macro type
+    # TODO add macros with call-by-name
+
+    # by default do a call-by-value
     if not callable(op):
         raise CannotCall(f"{str(sexpr.head())} cannot be applied")
     else:
-        return op(sexpr.tail())
+        args = interpret_list(sexpr.tail().values, env)
+        return op(args)
 
 
 def interpret_list(terms: Iterable[Tree], env: Environment) -> list:
