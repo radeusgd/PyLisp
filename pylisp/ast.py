@@ -3,7 +3,7 @@ from typing import Callable, TypeVar, List
 T = TypeVar('T')
 
 
-class Tree(object):
+class Tree:
     def visit(self,
               symbol: Callable[["Symbol"], T],
               intlit: Callable[["IntLiteral"], T],
@@ -102,8 +102,11 @@ class ExpressionList(Tree):
     def head(self) -> Tree:
         return self.values[0]
 
-    def tail(self) -> List[Tree]:
-        return self.values[1:]
+    def tail(self) -> "ExpressionList":
+        return ExpressionList(self.values[1:])
 
-    def isempty(self) -> bool:
+    def is_empty(self) -> bool:
         return len(self.values) == 0
+
+    def __len__(self):
+        return len(self.values)

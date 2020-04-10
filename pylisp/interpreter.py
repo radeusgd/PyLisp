@@ -1,63 +1,61 @@
-from typing import Union
+from typing import Union, Iterable
 
 from pylisp.ast import *
 from pylisp.environment import Environment
+from pylisp.errors import CannotCall, WrongOperatorUsage
 
 
-class Interpreter(object):
-    def interpret(self, term: Tree, env: Environment) -> object:
-        def interpret_symbol(symbol: Symbol):
-            return env.lookup(symbol.name)
+class Builtin:
+    def __init__(self, name, arity):
+        """
+        name - name of the operator used to invoke it
+        arity - arguments count, if None the operator is Vararg
+        """
+        self.name = name
+        self.arity = arity
 
-        def interpret_lit(lit: Literal):
-            return lit.value
+    def __call__(self, *args, **kwargs):
+        raise NotImplementedError
 
-        def interpret_exprlist(exprlist: ExpressionList):
-            return self.interpret_sexpr(exprlist, env)
 
-        return term.visit(
-            symbol=interpret_symbol,
-            intlit=interpret_lit,
-            strlit=interpret_lit,
-            exprlist=interpret_exprlist
-        )
+def interpret(term: Tree, env: Environment):
+    def interpret_symbol(symbol: Symbol):
+        return env.lookup(symbol.name)
 
-    def interpret_sexpr(self, sexpr: ExpressionList, env: Environment):
-        if sexpr.isempty():
-            return []
+    def interpret_lit(lit: Literal):
+        return lit.value
 
-        if isinstance(sexpr.head(), Symbol):
-            car = sexpr.head().name  # TODO handle the cast in a better way
-            if car == "let":
-                return self.interpret_let(sexpr.tail(), env)
-            elif car == "+":
-                args = map(lambda t: self.interpret(t, env), sexpr.tail())
-                return sum(args)
+    def interpret_exprlist(exprlist: ExpressionList):
+        return interpret_sexpr(exprlist, env)
 
-        fun = self.interpret(sexpr.head(), env)
-        if not callable(fun):
-            raise RuntimeError(f"{str(fun)} is not a function")
-        else:
-            args = list(map(lambda t: self.interpret(t, env), sexpr.tail()))
-            return fun(args)
+    return term.visit(
+        symbol=interpret_symbol,
+        intlit=interpret_lit,
+        strlit=interpret_lit,
+        exprlist=interpret_exprlist
+    )
 
-    def interpret_let(self, args, env: Environment):
-        # TODO recursive let
-        if len(args) != 2:
-            raise RuntimeError("Wrong let form")
-        bindings = args[0]
-        # TODO more robust DSL for defining macros
-        if not isinstance(bindings, ExpressionList):
-            raise RuntimeError("Wrong let form")
-        if len(bindings.values) != 2:
-            raise RuntimeError("Wrong let form")
 
-        [symb, inner] = bindings.values
-        outer = args[1]
+def interpret_sexpr(sexpr: ExpressionList, env: Environment):
+    if sexpr.is_empty():
+        return []
 
-        if not isinstance(symb, Symbol):
-            raise RuntimeError("You can only let to symbols")
+    op = interpret(sexpr.head(), env)
+    args = sexpr.tail()
 
-        v = self.interpret(inner, env)
-        extended_env = env.extend(symb.name, v)
-        return self.interpret(outer, extended_env)
+    if isinstance(op, Builtin):
+        if op.arity is not None and len(args) != op.arity:
+            raise WrongOperatorUsage(f"{op.name} expects {op.arity} arguments but was given {len(args)})")
+        return op(env, *args.values)
+
+    if not callable(op):
+        raise CannotCall(f"{str(sexpr.head())} cannot be applied")
+    else:
+        return op(sexpr.tail())
+
+
+def interpret_list(terms: Iterable[Tree], env: Environment) -> list:
+    """
+    Helper function that takes a list of terms and interprets each of them, returning list of respective results on success.
+    """
+    return list(map(lambda term: interpret(term, env), terms))

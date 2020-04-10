@@ -1,23 +1,25 @@
 import sys
 from traceback import print_exc
 
-from pylisp.environment import empty_environment
-from pylisp.interpreter import Interpreter
+from pylisp.environment import environment_with_builtins
+from pylisp.builtins import builtins
+from pylisp.errors import LispError
+from pylisp.interpreter import interpret
 from pylisp.parser import Parser
 
 
-class Repl(object):
+class Repl:
     def __init__(self):
         self.parser = Parser()
-        self.interpreter = Interpreter()
+        self.env = environment_with_builtins(builtins)
 
     def eval(self, code: str):
         try:
             term = self.parser.parse_expr(code)
-            print(term)
-            res = self.interpreter.interpret(term, empty_environment())
+            print(term)  # TODO remove debug
+            res = interpret(term, self.env)
             print(res)
-        except BaseException:  # TODO narrow down exception handling
+        except LispError:
             print_exc()
 
     def run(self):

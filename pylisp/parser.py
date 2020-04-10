@@ -10,7 +10,7 @@ class Parser(object):
         def lexeme(p):
             return p << whitespace
 
-        number_literal = lexeme(regex("[0-9]+")).map(lambda v: IntLiteral(int(v)))
+        number_literal = lexeme(regex("\-?[0-9]+")).map(lambda v: IntLiteral(int(v)))
         symbol = lexeme(regex("[a-zA-Z+\\-*/=<>!?][a-zA-Z+\\-*/=<>!?0-9]*")).map(Symbol)
         string_part = regex(r'[^"\\]+')
         string_literal = lexeme(string("\"") >> string_part.many().concat() << string("\"") | string("'") >> string_part.many().concat() << string("'")).map(StringLiteral)
