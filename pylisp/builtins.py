@@ -1,7 +1,7 @@
 from pylisp.ast import Symbol, ExpressionList
 from pylisp.environment import Environment
 from pylisp.errors import OutOfBounds, WrongOperatorUsage, LispError
-from pylisp.interpreter import Builtin, interpret, interpret_list
+from pylisp.interpreter import Builtin, interpret, interpret_list, interpret_file
 
 
 class FuncBuiltin(Builtin):
@@ -54,7 +54,7 @@ def letrec(env: Environment, bindings, body):
     bindings = list(map(process_binding, bindings.values))
     inner_env = env.copy()
     for name, inner in bindings:
-        inner_env.set(name, interpret(inner, inner_env))
+        inner_env.update(name, interpret(inner, inner_env))
     return interpret(body, inner_env)
 
 
@@ -164,3 +164,53 @@ def block_get(env: Environment, block, idx, value):
     if not isinstance(idx, int):
         raise WrongOperatorUsage("set! idx has to be an integer")
     return block.set(idx, value)
+
+
+@register_vararg_builtin("list")
+def list_make(env: Environment, *args):
+    args = interpret_list(args, env)
+    return args
+
+
+@register_builtin(1, "head")
+def list_head(env: Environment, lst):
+    lst = interpret(lst, env)
+    if not isinstance(lst, list):
+        raise LispError("head applied to not a list")
+    return lst[0]
+
+
+@register_builtin(1, "tail")
+def list_tail(env: Environment, lst):
+    lst = interpret(lst, env)
+    if not isinstance(lst, list):
+        raise LispError("head applied to not a list")
+    return lst[1:]
+
+
+# TODO maybe this can be a macro in the future
+@register_builtin(1, "quote")
+def quote(env: Environment, code):
+    return code
+
+
+@register_vararg_builtin("print")
+def builtin_print(env: Environment, *args):
+    args = interpret_list(args, env)
+    print(" ".join(args))
+    return None
+
+
+@register_builtin(0, "read_line!")
+def read_line(_: Environment):
+    return input()
+
+
+@register_builtin(1, "require!")
+def require(env: Environment, path):
+    path = interpret(path, env)
+    if not isinstance(path, str):
+        raise LispError("Can only import a string path")
+    with open(path) as f:
+        interpret_file(f, env)
+    return None

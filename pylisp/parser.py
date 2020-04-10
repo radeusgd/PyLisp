@@ -11,7 +11,7 @@ class Parser(object):
             return p << whitespace
 
         number_literal = lexeme(regex("\\-?[0-9]+")).map(lambda v: IntLiteral(int(v)))
-        symbol = lexeme(regex("[a-zA-Z+\\-*/=<>!?][a-zA-Z+\\-*/=<>!?0-9]*")).map(Symbol)
+        symbol = lexeme(regex("[a-zA-Z+\\-*/=<>!?_][a-zA-Z+\\-*/=<>!?0-9_]*")).map(Symbol)
         string_part = regex(r'[^"\\]+')
         string_literal = lexeme(string("\"") >> string_part.many().concat() << string("\"") | string("'") >> string_part.many().concat() << string("'")).map(StringLiteral)
         open_paren = lexeme(string("("))
@@ -20,11 +20,15 @@ class Parser(object):
         @generate
         def exprlist():
             yield open_paren
-            elements = yield self._expr_.many()
+            elements = yield self._expr.many()
             yield close_paren
             return ExpressionList(elements)
 
-        self._expr_ = number_literal | string_literal | symbol | exprlist
+        self._expr = number_literal | string_literal | symbol | exprlist
+        self._file = self._expr.many()
 
     def parse_expr(self, code):
-        return self._expr_.parse(code)
+        return self._expr.parse(code)
+
+    def parse_file(self, code):
+        return self._file.parse(code)

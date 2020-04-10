@@ -1,8 +1,9 @@
-from typing import Union, Iterable
+from typing import Union, Iterable, IO
 
 from pylisp.ast import *
 from pylisp.environment import Environment
 from pylisp.errors import CannotCall, WrongOperatorUsage
+from pylisp.parser import Parser
 
 
 class Builtin:
@@ -63,3 +64,10 @@ def interpret_list(terms: Iterable[Tree], env: Environment) -> list:
     Helper function that takes a list of terms and interprets each of them, returning list of respective results on success.
     """
     return list(map(lambda term: interpret(term, env), terms))
+
+
+def interpret_file(file: IO, env: Environment):
+    code = file.read()
+    statements = Parser().parse_file(code)
+    for statement in statements:
+        interpret(statement, env)
