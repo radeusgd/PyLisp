@@ -12,3 +12,7 @@ class WrongOperatorUsage(LispError):
 
 class CannotCall(LispError):
     pass
+
+
+class OutOfBounds(LispError):
+    pass

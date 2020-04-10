@@ -48,6 +48,7 @@ def interpret_sexpr(sexpr: ExpressionList, env: Environment):
             raise WrongOperatorUsage(f"{op.name} expects {op.arity} arguments but was given {len(args)})")
         return op(env, *args.values)
 
+    # TODO add a macro type
     if not callable(op):
         raise CannotCall(f"{str(sexpr.head())} cannot be applied")
     else:
