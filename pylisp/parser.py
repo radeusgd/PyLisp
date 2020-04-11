@@ -11,7 +11,7 @@ class Parser(object):
             return p << whitespace
 
         number_literal = lexeme(regex("\\-?[0-9]+")).map(lambda v: IntLiteral(int(v)))
-        symbol = lexeme(regex("[a-zA-Z+\\-*/=<>!?_][a-zA-Z+\\-*/=<>!?0-9_]*")).map(Symbol)
+        symbol = lexeme(regex("[a-zA-Z+\\-*/=<>!?_][a-zA-Z+\\-*/=<>!?0-9_]*")).map(Identifier)
         string_part = regex(r'[^"\\]+')
         string_literal = lexeme(string("\"") >> string_part.many().concat() << string("\"") | string("'") >> string_part.many().concat() << string("'")).map(StringLiteral)
         open_paren = lexeme(string("("))

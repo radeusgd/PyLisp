@@ -1,4 +1,4 @@
-from pylisp.ast import Symbol, ExpressionList
+from pylisp.ast import Identifier, ExpressionList
 from pylisp.environment import Environment
 from pylisp.errors import OutOfBounds, WrongOperatorUsage, LispError
 from pylisp.interpreter import Builtin, interpret, interpret_list, interpret_file
@@ -47,7 +47,7 @@ def letrec(env: Environment, bindings, body):
         if len(binding) != 2:
             raise LispError("Wrong let form")
         [symb, inner] = binding.values
-        if not isinstance(symb, Symbol):
+        if not isinstance(symb, Identifier):
             raise LispError("You can only bind to symbols")
         return symb.name, inner
 
@@ -60,7 +60,7 @@ def letrec(env: Environment, bindings, body):
 
 @register_builtin(2, "define!")
 def define(env: Environment, name, body):
-    if not isinstance(name, Symbol):
+    if not isinstance(name, Identifier):
         raise LispError("You can only bind to symbols")
     inner = interpret(body, env)
     env.update(name.name, inner)
@@ -102,7 +102,7 @@ def conditional(env: Environment, cond, branch_true, branch_else):
 @register_builtin(2)
 def fun(env: Environment, args, body):
     def process_arg(arg):
-        if not isinstance(arg, Symbol):
+        if not isinstance(arg, Identifier):
             raise LispError("Function arguments in the definition have to be symbols")
         return arg.name
     if not isinstance(args, ExpressionList):

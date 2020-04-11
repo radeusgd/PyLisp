@@ -1,36 +1,48 @@
-from typing import Callable, TypeVar, List
+from typing import Callable, TypeVar
 
 T = TypeVar('T')
 
 
 class Tree:
+    """
+    To separate parsing and semantics, we create a separate AST class hierarchy.
+    The parser returns an AST which is an abstract representation of the parsed program,
+    this could be used for example for easier implementation of syntax sugar.
+    Later the AST can be represented to our value representation that can then be interpreted.
+    """
     def visit(self,
-              symbol: Callable[["Symbol"], T],
+              identifier: Callable[["Identifier"], T],
               intlit: Callable[["IntLiteral"], T],
               strlit: Callable[["StringLiteral"], T],
               exprlist: Callable[["ExpressionList"], T]
               ) -> T:
+        """
+        visit represents the Scott's encoding of the Abstract Data Type representing our AST.
+        Calling visit acts as a pattern match, the caller provides a function processing each case
+        and the case is executed depending on the concrete object that has been unpacked.
+        The result of the specific function is returned as the result of the pattern match.
+        """
         raise NotImplementedError()
 
     def __str__(self):
         raise NotImplementedError()
 
 
-class Symbol(Tree):
+class Identifier(Tree):
     def __init__(self, name):
         super().__init__()
         self.name = name
 
     def visit(self,
-              symbol: Callable[["Symbol"], T],
+              identifier: Callable[["Identifier"], T],
               intlit: Callable[["IntLiteral"], T],
               strlit: Callable[["StringLiteral"], T],
               exprlist: Callable[["ExpressionList"], T]
               ) -> T:
-        return symbol(self)
+        return identifier(self)
 
     def __str__(self):
-        return f"Symbol({self.name})"
+        return f"Identifier({self.name})"
 
 
 class Literal(Tree):
@@ -39,7 +51,7 @@ class Literal(Tree):
         self.value = value
 
     def visit(self,
-              symbol: Callable[["Symbol"], T],
+              identifier: Callable[["Identifier"], T],
               intlit: Callable[["IntLiteral"], T],
               strlit: Callable[["StringLiteral"], T],
               exprlist: Callable[["ExpressionList"], T]
@@ -55,7 +67,7 @@ class IntLiteral(Literal):
         super().__init__(value)
 
     def visit(self,
-              symbol: Callable[["Symbol"], T],
+              identifier: Callable[["Identifier"], T],
               intlit: Callable[["IntLiteral"], T],
               strlit: Callable[["StringLiteral"], T],
               exprlist: Callable[["ExpressionList"], T]
@@ -71,7 +83,7 @@ class StringLiteral(Literal):
         super().__init__(value)
 
     def visit(self,
-              symbol: Callable[["Symbol"], T],
+              identifier: Callable[["Identifier"], T],
               intlit: Callable[["IntLiteral"], T],
               strlit: Callable[["StringLiteral"], T],
               exprlist: Callable[["ExpressionList"], T]
@@ -88,7 +100,7 @@ class ExpressionList(Tree):
         self.values = values
 
     def visit(self,
-              symbol: Callable[["Symbol"], T],
+              identifier: Callable[["Identifier"], T],
               intlit: Callable[["IntLiteral"], T],
               strlit: Callable[["StringLiteral"], T],
               exprlist: Callable[["ExpressionList"], T]

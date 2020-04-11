@@ -1,12 +1,10 @@
-import sys
 from traceback import print_exc
 
 from pylisp.environment import environment_with_builtins
 from pylisp.builtins import builtins
 from pylisp.errors import LispError
-from pylisp.interpreter import interpret
+from pylisp.interpreter import represent_code, interpret
 from pylisp.parser import Parser
-
 
 class Repl:
     def __init__(self):
@@ -15,9 +13,10 @@ class Repl:
 
     def eval(self, code: str):
         try:
-            term = self.parser.parse_expr(code)
-            print(term)  # TODO remove debug
-            res = interpret(term, self.env)
+            ast = self.parser.parse_expr(code)
+            print(ast)  # TODO remove debug
+            code = represent_code(ast)
+            res = interpret(code, self.env)
             print(res)
         except LispError:
             print_exc()
