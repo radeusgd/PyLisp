@@ -1,5 +1,5 @@
 from pylisp.environment import Environment
-from pylisp.errors import OutOfBounds, WrongOperatorUsage, LispError
+from pylisp.errors import LispError
 from pylisp.interpreter import Builtin, interpret, interpret_list, interpret_file, ConsCell, python_list_to_lisp, \
     Symbol, lisp_list_length, lisp_list_to_python, lisp_list_is_valid, lisp_data_to_str
 
@@ -27,6 +27,9 @@ def register_builtin(arity, name=None):
                 return func(env, *args)
             except LispError as err:
                 reconstructed_form = python_list_to_lisp([Symbol(name)] + list(args))
+                if len(str(err).splitlines()) > 3:
+                    # we don't add more than 3 traces
+                    raise
                 raise LispError(str(err) + f"\n in: {lisp_data_to_str(reconstructed_form)}") from err
         builtin = FuncBuiltin(name, arity, syntax_wrapper)
         if builtin.name in builtins:
@@ -146,12 +149,12 @@ class Block:
 
     def set(self, idx, value):
         if idx < 0 or idx >= len(self.values):
-            raise OutOfBounds(f"Index {idx} is out of bounds")
+            raise LispError(f"Index {idx} is out of bounds")
         self.values[idx] = value
 
     def get(self, idx):
         if idx < 0 or idx >= len(self.values):
-            raise OutOfBounds(f"Index {idx} is out of bounds")
+            raise LispError(f"Index {idx} is out of bounds")
         return self.values[idx]
 
 
@@ -159,7 +162,7 @@ class Block:
 def block_alloc(env: Environment, size):
     size = interpret(size, env)
     if not isinstance(size, int):
-        raise WrongOperatorUsage("alloc! needs an integer")
+        raise LispError("alloc! needs an integer")
     return Block(size)
 
 
@@ -168,9 +171,9 @@ def block_get(env: Environment, block, idx):
     block = interpret(block, env)
     idx = interpret(idx, env)
     if not isinstance(block, Block):
-        raise WrongOperatorUsage("get! works only on blocks")
+        raise LispError("get! works only on blocks")
     if not isinstance(idx, int):
-        raise WrongOperatorUsage("get! idx has to be an integer")
+        raise LispError("get! idx has to be an integer")
     return block.get(idx)
 
 
@@ -180,9 +183,9 @@ def block_get(env: Environment, block, idx, value):
     idx = interpret(idx, env)
     value = interpret(value, env)
     if not isinstance(block, Block):
-        raise WrongOperatorUsage("set! works only on blocks")
+        raise LispError("set! works only on blocks")
     if not isinstance(idx, int):
-        raise WrongOperatorUsage("set! idx has to be an integer")
+        raise LispError("set! idx has to be an integer")
     return block.set(idx, value)
 
 

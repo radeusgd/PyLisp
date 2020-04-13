@@ -2,7 +2,7 @@ from typing import Iterable, IO, Union, List
 
 from pylisp.ast import *
 from pylisp.environment import Environment
-from pylisp.errors import CannotCall, WrongOperatorUsage, LispError, InvalidList
+from pylisp.errors import LispError, InvalidList
 from pylisp.parser import Parser
 
 
@@ -17,10 +17,23 @@ class ConsCell:
     def tail(self):
         return self._tail
 
+    def __eq__(self, other):
+        if isinstance(other, ConsCell):
+            return self.head() == other.head() and self.tail() == other.tail()
+        return False
+
 
 class Symbol:
     def __init__(self, name):
         self.name = name
+
+    def __str__(self):
+        return f"Symbol({self.name})"
+
+    def __eq__(self, other):
+        if isinstance(other, Symbol):
+            return self.name == other.name
+        return False
 
 
 LispList = Union[ConsCell, None]
@@ -144,15 +157,15 @@ def interpret_sexpr(sexpr: ConsCell, env: Environment):
     
     if isinstance(op, Builtin):
         if op.arity is not None and len(args) != op.arity:
-            raise WrongOperatorUsage(f"{op.name} expects {op.arity} arguments but was given {len(args)})")
+            raise LispError(f"{op.name} expects {op.arity} arguments but was given {len(args)})")
         return op(env, *args)
 
     # TODO add macros with call-by-name
 
     # by default do a call-by-value
     if not callable(op):
-        raise CannotCall(f"{lisp_data_to_str(sexpr.head())} cannot be applied"
-                         + f"\n in {lisp_data_to_str(sexpr)}")
+        raise LispError(f"{lisp_data_to_str(sexpr.head())} cannot be applied"
+                        f"\n in {lisp_data_to_str(sexpr)}")
     else:
         return op(interpret_list(args, env))
 

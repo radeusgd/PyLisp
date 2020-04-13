@@ -2,3 +2,4 @@ venv/
 .idea/
 *.pyc
 __pycache__/
+pylisp.egg-info/

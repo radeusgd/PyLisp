@@ -44,6 +44,11 @@ class Identifier(Tree):
     def __str__(self):
         return f"Identifier({self.name})"
 
+    def __eq__(self, other):
+        if isinstance(other, Identifier):
+            return self.name == other.name
+        return False
+
 
 class Literal(Tree):
     def __init__(self, value):
@@ -60,6 +65,11 @@ class Literal(Tree):
 
     def __str__(self):
         raise NotImplementedError()
+
+    def __eq__(self, other):
+        if isinstance(other, Literal):
+            return self.value == other.value
+        return False
 
 
 class IntLiteral(Literal):
@@ -122,3 +132,8 @@ class ExpressionList(Tree):
 
     def __len__(self):
         return len(self.values)
+
+    def __eq__(self, other):
+        if isinstance(other, ExpressionList):
+            return self.values == other.values
+        return False
