@@ -96,9 +96,15 @@ def register_eager_binary_builtin(name, func):
     register_builtin(2, name)(helper)
 
 
+def divide(a, b):
+    if b == 0:
+        raise LispError("Division by 0")
+    return a / b
+
+
 register_eager_binary_builtin("-", lambda a, b: a - b)
 register_eager_binary_builtin("*", lambda a, b: a * b)
-register_eager_binary_builtin("/", lambda a, b: a / b)
+register_eager_binary_builtin("/", divide)
 register_eager_binary_builtin("mod", lambda a, b: a % b)
 register_eager_binary_builtin("=", lambda a, b: a == b)
 register_eager_binary_builtin("<=", lambda a, b: a <= b)
@@ -225,6 +231,11 @@ def builtin_print(env: Environment, *args):
     args = map(lisp_data_to_str, interpret_list(args, env))
     print(" ".join(args))
     return None
+
+
+@register_builtin(1, "str")
+def builtin_str(env: Environment, arg):
+    return lisp_data_to_str(interpret(arg, env))
 
 
 @register_builtin(0, "read_line!")

@@ -2,7 +2,7 @@ from pylisp.parser import Parser
 from pylisp.ast import *
 
 
-def test_parser():
+def test_parse_exp():
     par = Parser()
 
     assert par.parse_expr("42") == IntLiteral(42)
@@ -16,3 +16,12 @@ def test_parser():
            ExpressionList([Identifier("f"), ExpressionList([Identifier("a"), Identifier("b")])])
     assert par.parse_expr("(())") == \
            ExpressionList([ExpressionList([])])
+
+
+def test_parse_file():
+    par = Parser()
+
+    assert par.parse_file("") == []
+    assert par.parse_file("1 2") == [IntLiteral(1), IntLiteral(2)]
+    assert par.parse_file("(f 2 3) 'a") == [ExpressionList([Identifier("f"), IntLiteral(2), IntLiteral(3)]), ExpressionList([Identifier("quote"), Identifier("a")])]
+
