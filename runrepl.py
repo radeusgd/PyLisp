@@ -1,3 +1,3 @@
 from pylisp.repl import Repl
 
-Repl().run()
+Repl(debug=True).cmdloop()

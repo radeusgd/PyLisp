@@ -1,6 +1,7 @@
 from traceback import print_exc
 
 from parsy import ParseError
+from cmd import Cmd
 
 from pylisp.environment import environment_with_builtins
 from pylisp.builtins import builtins
@@ -8,30 +9,31 @@ from pylisp.errors import LispError
 from pylisp.interpreter import represent_code, interpret, lisp_data_to_str
 from pylisp.parser import Parser
 
-class Repl:
-    def __init__(self):
+
+class Repl(Cmd):
+    def __init__(self, debug=False):
+        super().__init__()
         self.parser = Parser()
         self.env = environment_with_builtins(builtins)
+        self.prompt = "> "
+        self._debug = debug
 
-    def eval(self, code: str):
+    def default(self, line):
+        if line == "EOF":
+            print("Bye!")
+            return True
         try:
-            ast = self.parser.parse_expr(code)
+            ast = self.parser.parse_expr(line)
             code = represent_code(ast)
-            print(lisp_data_to_str(code))
             res = interpret(code, self.env)
             print(lisp_data_to_str(res))
         except LispError as e:
+            if self._debug:
+                print_exc()
             print("Runtime error:", e)
         except ParseError as e:
             print("Parse error:", e)
 
-    def run(self):
-        while True:
-            try:
-                line = input("> ")
-            except EOFError:
-                return
+    def do_help(self, arg):
+        print("Help is not implemented")
 
-            if line == ":q":
-                return
-            self.eval(line)

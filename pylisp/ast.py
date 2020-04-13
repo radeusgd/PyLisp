@@ -7,7 +7,7 @@ class Tree:
     """
     To separate parsing and semantics, we create a separate AST class hierarchy.
     The parser returns an AST which is an abstract representation of the parsed program,
-    this could be used for example for easier implementation of syntax sugar.
+    this could be used for example for easier implementation of syntax analysis.
     Later the AST can be represented to our value representation that can then be interpreted.
     """
     def visit(self,

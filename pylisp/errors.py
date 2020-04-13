@@ -16,3 +16,7 @@ class CannotCall(LispError):
 
 class OutOfBounds(LispError):
     pass
+
+
+class InvalidList(LispError):
+    pass

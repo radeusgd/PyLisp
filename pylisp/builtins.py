@@ -1,7 +1,7 @@
-from pylisp.ast import Identifier, ExpressionList
 from pylisp.environment import Environment
 from pylisp.errors import OutOfBounds, WrongOperatorUsage, LispError
-from pylisp.interpreter import Builtin, interpret, interpret_list, interpret_file, ConsCell, python_list_to_lisp
+from pylisp.interpreter import Builtin, interpret, interpret_list, interpret_file, ConsCell, python_list_to_lisp, \
+    Symbol, lisp_list_length, lisp_list_to_python, lisp_list_is_valid, lisp_data_to_str
 
 
 class FuncBuiltin(Builtin):
@@ -22,7 +22,13 @@ def register_builtin(arity, name=None):
         if name is None:
             name = func.__name__
 
-        builtin = FuncBuiltin(name, arity, func)
+        def syntax_wrapper(env: Environment, *args):
+            try:
+                return func(env, *args)
+            except LispError as err:
+                reconstructed_form = python_list_to_lisp([Symbol(name)] + list(args))
+                raise LispError(str(err) + f"\n in: {lisp_data_to_str(reconstructed_form)}") from err
+        builtin = FuncBuiltin(name, arity, syntax_wrapper)
         if builtin.name in builtins:
             raise AssertionError(f"Builtin names have to be unique: {builtin.name}")
         builtins[builtin.name] = builtin
@@ -36,32 +42,40 @@ def register_vararg_builtin(name=None):
 
 @register_builtin(2)
 def let(env: Environment, binding, body):
-    return letrec(env, ExpressionList([binding]), body)
+    return letrec(env, python_list_to_lisp([binding]), body)
 
 
 @register_builtin(2)
 def letrec(env: Environment, bindings, body):
+    def form_error():
+        raise LispError(f"Wrong let form: (letrec {lisp_data_to_str(bindings)} ...)")
+
     def process_binding(binding):
-        if not isinstance(binding, ExpressionList):
-            raise LispError("Wrong let form")
-        if len(binding) != 2:
-            raise LispError("Wrong let form")
-        [symb, inner] = binding.values
-        if not isinstance(symb, Identifier):
-            raise LispError("You can only bind to symbols")
+        if not isinstance(binding, ConsCell):
+            form_error()
+        if lisp_list_length(binding) != 2:
+            form_error()
+        [symb, inner] = lisp_list_to_python(binding)
+        if not isinstance(symb, Symbol):
+            form_error()
         return symb.name, inner
 
-    bindings = list(map(process_binding, bindings.values))
-    inner_env = env.copy()
+    bindings = list(map(process_binding, lisp_list_to_python(bindings)))
+    inner_env = env.fork()
+    # we first allocate forward references to all mutually recursive bindings
+    for name, _ in bindings:
+        inner_env.allocate_forward_reference(name)
+    # and afterwards we fill them in with computed values,
+    # while the values are computed, their forked environments will be successively updated
     for name, inner in bindings:
-        inner_env.update(name, interpret(inner, inner_env))
+        inner_env.fill_forward_reference(name, interpret(inner, inner_env))
     return interpret(body, inner_env)
 
 
 @register_builtin(2, "define!")
 def define(env: Environment, name, body):
-    if not isinstance(name, Identifier):
-        raise LispError("You can only bind to symbols")
+    if not isinstance(name, Symbol):
+        raise LispError(f"You can only bind to symbols, not to: {lisp_data_to_str(name)}")
     inner = interpret(body, env)
     env.update(name.name, inner)
 
@@ -102,22 +116,28 @@ def conditional(env: Environment, cond, branch_true, branch_else):
 @register_builtin(2)
 def fun(env: Environment, args, body):
     def process_arg(arg):
-        if not isinstance(arg, Identifier):
-            raise LispError("Function arguments in the definition have to be symbols")
+        if not isinstance(arg, Symbol):
+            raise LispError(f"Function arguments in the definition have to be symbols;"
+                            + " in: (fun {lisp_data_to_str(args)} ...)")
         return arg.name
-    if not isinstance(args, ExpressionList):
-        raise LispError("Function needs an argument list")
-    args = list(map(process_arg, args.values))
-    function_env = env.copy()  # copy to ensure this environment is not affected by new mutations
+    if not lisp_list_is_valid(args):
+        raise LispError(f"Wrong function form: (fun {lisp_data_to_str(args)} ...)")
+    args = list(map(process_arg, lisp_list_to_python(args)))
+    function_env = env.fork()  # we do a copy to achieve static-binding
 
     def closure(arg_values):
         if len(arg_values) != len(args):
             raise LispError("Function applied to a wrong number of arguments")
-        invokation_env = function_env.copy() # copy to preserve the closure for future calls
+        invokation_env = function_env.fork()  # copy to preserve the closure for future calls
         for arg_name, arg_value in zip(args, arg_values):
             invokation_env.update(arg_name, arg_value)
         return interpret(body, invokation_env)
     return closure
+
+
+@register_vararg_builtin()
+def begin(env: Environment, *args):
+    return interpret_list(args, env)[-1]  # return the value of the last statement
 
 
 class Block:
@@ -199,7 +219,7 @@ def quote(env: Environment, code):
 
 @register_vararg_builtin("print")
 def builtin_print(env: Environment, *args):
-    args = interpret_list(args, env)
+    args = map(lisp_data_to_str, interpret_list(args, env))
     print(" ".join(args))
     return None
 
@@ -216,4 +236,3 @@ def require(env: Environment, path):
         raise LispError("Can only import a string path")
     with open(path) as f:
         interpret_file(f, env)
-    return None

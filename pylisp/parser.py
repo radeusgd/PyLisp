@@ -24,7 +24,14 @@ class Parser(object):
             yield close_paren
             return ExpressionList(elements)
 
-        self._expr = number_literal | string_literal | symbol | exprlist
+        # sample of desugaring
+        @generate
+        def quote():
+            yield string("'")
+            expr = yield self._expr
+            return ExpressionList([Identifier("quote"), expr])
+
+        self._expr = number_literal | string_literal | quote | symbol | exprlist
         self._file = self._expr.many()
 
     def parse_expr(self, code):

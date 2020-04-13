@@ -2,7 +2,7 @@ from typing import Iterable, IO, Union, List
 
 from pylisp.ast import *
 from pylisp.environment import Environment
-from pylisp.errors import CannotCall, WrongOperatorUsage
+from pylisp.errors import CannotCall, WrongOperatorUsage, LispError, InvalidList
 from pylisp.parser import Parser
 
 
@@ -32,13 +32,25 @@ def python_list_to_lisp(lst: list) -> LispList:
     return ConsCell(lst[0], python_list_to_lisp(lst[1:]))
 
 
-def lisp_list_length(lst: LispList) -> int:
+def lisp_list_is_valid(lst) -> bool:
+    if lst is None:
+        return True
+    if isinstance(lst, ConsCell):
+        return lisp_list_is_valid(lst.tail())
+    return False
+
+
+def lisp_list_length(lst) -> int:
     if lst is None:
         return 0
-    return 1 + lisp_list_length(lst.tail())
+    if isinstance(lst, ConsCell):
+        return 1 + lisp_list_length(lst.tail())
+    raise InvalidList("Expected a valid list")
 
 
-def lisp_list_to_python(lst: LispList) -> list:
+def lisp_list_to_python(lst) -> list:
+    if not lisp_list_is_valid(lst):
+        raise InvalidList(f"Expected a valid list, got {lisp_data_to_str(lst)}")
     # this is the simple solution but as it creates new lists instead of reusing the old one it can be O(N^2)
     # if isinstance(lst, Cons):
     #     return [lst.head] + lisp_list_to_python(lst.tail)
@@ -71,7 +83,7 @@ class Builtin:
 def lisp_list_to_str(lst: LispList) -> str:
     def helper(lst, acc: List[str]) -> str:
         if isinstance(lst, ConsCell):
-            return  helper(lst.tail(), acc + [lisp_data_to_str(lst.head())])
+            return helper(lst.tail(), acc + [lisp_data_to_str(lst.head())])
         if lst is None:
             return " ".join(acc)
 
@@ -139,7 +151,8 @@ def interpret_sexpr(sexpr: ConsCell, env: Environment):
 
     # by default do a call-by-value
     if not callable(op):
-        raise CannotCall(f"{str(sexpr.head())} cannot be applied")
+        raise CannotCall(f"{lisp_data_to_str(sexpr.head())} cannot be applied"
+                         + f"\n in {lisp_data_to_str(sexpr)}")
     else:
         return op(interpret_list(args, env))
 
