@@ -1,3 +1,5 @@
+import random
+
 from pylisp.environment import Environment
 from pylisp.errors import LispError
 from pylisp.interpreter import Builtin, interpret, interpret_list, interpret_file, ConsCell, python_list_to_lisp, \
@@ -287,7 +289,11 @@ def quote(env: Environment, code):
 
 @register_vararg_builtin("print!")
 def builtin_print(env: Environment, *args):
-    args = map(lisp_data_to_str, interpret_list(args, env))
+    def to_str(v):
+        if isinstance(v, str):
+            return v
+        return lisp_data_to_str(v)
+    args = map(to_str, interpret_list(args, env))
     print(" ".join(args))
     return None
 
@@ -297,7 +303,13 @@ def builtin_str(env: Environment, arg):
     return lisp_data_to_str(interpret(arg, env))
 
 
-@register_builtin(0, "read_line!")
+@register_builtin(1)
+def str2int(env: Environment, arg):
+    arg = interpret(arg, env)
+    return int(arg)
+
+
+@register_builtin(0, "readline!")
 def read_line(_: Environment):
     return input()
 
@@ -325,3 +337,6 @@ def builtin_help(env: Environment, builtin):
         return
     print("Documentation for:", builtin.name)
     print(builtin.doc)
+
+
+register_eager_binary_builtin("randint!", lambda a, b: random.randint(a, b))

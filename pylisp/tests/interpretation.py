@@ -46,3 +46,23 @@ def test_list():
     assert parse_and_run("(str (cons 2 nil))") == "(2)"
     assert parse_and_run("(str '(1 2 3))") == "(1 2 3)"
     assert parse_and_run("(str (list 2 3))") == "(2 3)"
+
+
+def test_recursive():
+    factorial_code = \
+        "(letrec ((fact (fun (n) (if (= n 0) 1 (* n (fact (- n 1))))))) (fact 5))"
+    assert parse_and_run(factorial_code) == 120
+    even_code = \
+        "(letrec (" \
+        "   (not (fun (b) (if b false true)))" \
+        "   (even (fun (n) (if (= n 0) true (not (even (- n 1))))))" \
+        ") (even 8))"
+    assert parse_and_run(even_code)
+
+
+def test_binding():
+    code1 = "(let (a 2) (let (f (fun () a)) (let (a 3) (f))))"
+    assert parse_and_run(code1) == 2
+
+    code2 = "(begin (define! a 2) (define! f (fun () a)) (define! a 3) (f))"
+    assert parse_and_run(code2) == 2
