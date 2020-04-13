@@ -1,7 +1,7 @@
 from pylisp.environment import Environment
 from pylisp.errors import LispError
 from pylisp.interpreter import Builtin, interpret, interpret_list, interpret_file, ConsCell, python_list_to_lisp, \
-    Symbol, lisp_list_length, lisp_list_to_python, lisp_list_is_valid, lisp_data_to_str
+    Symbol, lisp_list_length, lisp_list_to_python, lisp_list_is_valid, lisp_data_to_str, Macro
 
 
 class FuncBuiltin(Builtin):
@@ -10,6 +10,18 @@ class FuncBuiltin(Builtin):
     """
     def __init__(self, name, arity, doc, func):
         super().__init__(name, arity, doc)
+        self.func = func
+
+    def __call__(self, *args, **kwargs):
+        return self.func(*args, **kwargs)
+
+
+class FuncMacro(Macro):
+    """
+    A class to wrap a simple function into a 'Macro' value.
+    """
+    def __init__(self, func):
+        super().__init__()
         self.func = func
 
     def __call__(self, *args, **kwargs):
@@ -56,7 +68,7 @@ def register_vararg_builtin(name=None):
 
 
 @register_builtin(2)
-def let(env: Environment, binding, body):
+def let(env: Environment, binding, body):  # this function could be a macro but is kept for simplicity of tests
     """
     (let (name value) body)
     Binds result of value to name inside of body.
@@ -146,8 +158,8 @@ def conditional(env: Environment, cond, branch_true, branch_else):
 def fun(env: Environment, args, body):
     def process_arg(arg):
         if not isinstance(arg, Symbol):
-            raise LispError(f"Function arguments in the definition have to be symbols;"
-                            + " in: (fun {lisp_data_to_str(args)} ...)")
+            raise LispError(f"Function arguments in the definition have to be symbols"
+                            f"\n in: (fun {lisp_data_to_str(args)} ...)")
         return arg.name
     if not lisp_list_is_valid(args):
         raise LispError(f"Wrong function form: (fun {lisp_data_to_str(args)} ...)")
@@ -162,6 +174,28 @@ def fun(env: Environment, args, body):
             invokation_env.update(arg_name, arg_value)
         return interpret(body, invokation_env)
     return closure
+
+
+@register_builtin(2)
+def macro(env: Environment, args, body):
+    def process_arg(arg):
+        if not isinstance(arg, Symbol):
+            raise LispError(f"Macro arguments in the definition have to be symbols"
+                            f"\n in: (macro {lisp_data_to_str(args)} ...)")
+        return arg.name
+    if not lisp_list_is_valid(args):
+        raise LispError(f"Wrong macro form: (macro {lisp_data_to_str(args)} ...)")
+    args = list(map(process_arg, lisp_list_to_python(args)))
+    function_env = env.fork()  # we do a copy to achieve static-binding
+
+    def closure(arg_values):
+        if len(arg_values) != len(args):
+            raise LispError("Macro applied to a wrong number of arguments")
+        invokation_env = function_env.fork()  # copy to preserve the closure for future calls
+        for arg_name, arg_value in zip(args, arg_values):
+            invokation_env.update(arg_name, arg_value)
+        return interpret(body, invokation_env)
+    return FuncMacro(closure)
 
 
 @register_vararg_builtin()
@@ -246,7 +280,6 @@ def list_tail(env: Environment, lst):
     return lst.tail()
 
 
-# TODO maybe this can be a macro in the future
 @register_builtin(1, "quote")
 def quote(env: Environment, code):
     return code
@@ -274,8 +307,11 @@ def require(env: Environment, path):
     path = interpret(path, env)
     if not isinstance(path, str):
         raise LispError("Can only import a string path")
-    with open(path) as f:
-        interpret_file(f, env)
+    try:
+        with open(path) as f:
+            interpret_file(f, env)
+    except IOError as e:
+        print(e)
 
 
 @register_builtin(1, "help!")

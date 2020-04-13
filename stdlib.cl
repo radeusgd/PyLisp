@@ -1,15 +1,21 @@
-(define! id (fun (x) x))
+(define! defun (macro (name args body)
+  (list 'define! name (list 'fun args body))
+  ))
 
-(define! tst 42)
-(define! make_adder (fun (a) (fun (b) (+ a b))))
+(define! defmacro (macro (name args body)
+                         (list 'define! name (list 'macro args body))
+                         ))
+(defun id (x) x)
+(defmacro defrec (name args body)
+  (list define! name
+        (list 'letrec
+              (list (list name (list 'fun args body)))
+              name)
+        ))
 
-(define! map (letrec
-                 ((recmap
-                   (fun (f list)
-                        (if (= list nil)
-                            nil
-                          (cons (f (head list)) (recmap f (tail list)))
-                   ))
-                   ))
-               recmap
-               ))
+
+(defrec map (f list)
+  (if (= list nil)
+      nil
+    (cons (f (head list)) (map f (tail list)))
+    ))

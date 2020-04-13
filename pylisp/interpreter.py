@@ -117,6 +117,15 @@ class Builtin:
         raise NotImplementedError
 
 
+class Macro:
+    """
+    Represents a macro - a function that is called without evaluating its arguments.
+    The value that it returns is then executed.
+    """
+    def __call__(self, *args, **kwargs):
+        raise NotImplementedError
+
+
 def lisp_list_to_str(lst: LispList) -> str:
     """
     Helper function to convert a LISP list to a string,
@@ -197,14 +206,14 @@ def interpret_sexpr(sexpr: ConsCell, env: Environment):
             raise LispError(f"{op.name} expects {op.arity} arguments but was given {len(args)})")
         return op(env, *args)
 
-    # TODO add macros with call-by-name
-
-    # by default do a call-by-value
-    if not callable(op):
+    elif isinstance(op, Macro):
+        code = op(args)
+        return interpret(code, env)
+    elif callable(op):  # by default do a call-by-value
+        return op(interpret_list(args, env))
+    else:
         raise LispError(f"{lisp_data_to_str(sexpr.head())} cannot be applied"
                         f"\n in {lisp_data_to_str(sexpr)}")
-    else:
-        return op(interpret_list(args, env))
 
 
 def interpret_list(terms: Iterable[Tree], env: Environment) -> list:
