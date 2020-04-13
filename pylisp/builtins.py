@@ -5,18 +5,26 @@ from pylisp.interpreter import Builtin, interpret, interpret_list, interpret_fil
 
 
 class FuncBuiltin(Builtin):
-    def __init__(self, name, arity, func):
-        super().__init__(name, arity)
+    """
+    A class to wrap a simple function into a 'Builtin' value.
+    """
+    def __init__(self, name, arity, doc, func):
+        super().__init__(name, arity, doc)
         self.func = func
 
     def __call__(self, *args, **kwargs):
         return self.func(*args, **kwargs)
 
 
+# list of exported builtins, will be expanded by register_* functions
 builtins = {"false": False, "true": True, "nil": None}
 
 
 def register_builtin(arity, name=None):
+    """
+    A decorator to register the wrapped function as a builtin with the provided arity.
+    If the name is not provided it is based on the function's __name__.
+    """
     def wrapper(func):
         nonlocal name
         if name is None:
@@ -31,7 +39,7 @@ def register_builtin(arity, name=None):
                     # we don't add more than 3 traces
                     raise
                 raise LispError(str(err) + f"\n in: {lisp_data_to_str(reconstructed_form)}") from err
-        builtin = FuncBuiltin(name, arity, syntax_wrapper)
+        builtin = FuncBuiltin(name, arity, func.__doc__, syntax_wrapper)
         if builtin.name in builtins:
             raise AssertionError(f"Builtin names have to be unique: {builtin.name}")
         builtins[builtin.name] = builtin
@@ -40,11 +48,19 @@ def register_builtin(arity, name=None):
 
 
 def register_vararg_builtin(name=None):
+    """
+    A decorator to register the wrapped function as a builtin with variable arity.
+    If the name is not provided it is based on the function's __name__.
+    """
     return register_builtin(None, name)
 
 
 @register_builtin(2)
 def let(env: Environment, binding, body):
+    """
+    (let (name value) body)
+    Binds result of value to name inside of body.
+    """
     return letrec(env, python_list_to_lisp([binding]), body)
 
 
@@ -89,6 +105,10 @@ def plus(env: Environment, *args):
 
 
 def register_eager_binary_builtin(name, func):
+    """
+    A helper decorator to register a simple 2 argument operator that expects evaluated arguments.
+    Useful for defining basic arithmetic primitives etc.
+    """
     def helper(env: Environment, a, b):
         a_val = interpret(a, env)
         b_val = interpret(b, env)
@@ -150,6 +170,9 @@ def begin(env: Environment, *args):
 
 
 class Block:
+    """
+    An instance of block, can be used to handle imperative arrays in the language.
+    """
     def __init__(self, size):
         self.values = [None] * size
 
@@ -162,6 +185,9 @@ class Block:
         if idx < 0 or idx >= len(self.values):
             raise LispError(f"Index {idx} is out of bounds")
         return self.values[idx]
+
+    def __str__(self):
+        return f"<allocated block of size {len(self.values)}>"
 
 
 @register_builtin(1, "alloc!")
@@ -226,7 +252,7 @@ def quote(env: Environment, code):
     return code
 
 
-@register_vararg_builtin("print")
+@register_vararg_builtin("print!")
 def builtin_print(env: Environment, *args):
     args = map(lisp_data_to_str, interpret_list(args, env))
     print(" ".join(args))
@@ -250,3 +276,16 @@ def require(env: Environment, path):
         raise LispError("Can only import a string path")
     with open(path) as f:
         interpret_file(f, env)
+
+
+@register_builtin(1, "help!")
+def builtin_help(env: Environment, builtin):
+    builtin = interpret(builtin, env)
+    if not isinstance(builtin, Builtin):
+        print("Not a builtin operator")
+        return
+    if builtin.doc is None:
+        print("No documentation found for:", builtin.name)
+        return
+    print("Documentation for:", builtin.name)
+    print(builtin.doc)

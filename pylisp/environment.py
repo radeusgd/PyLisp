@@ -44,12 +44,28 @@ class Environment:
     it is updated in all forks.
     """
     def __init__(self, mapping=None):
+        """
+        The constructor may be provided with an optional dictionary (str -> object).
+        > Environment(map)
+        is equivalent to:
+        > env = Environment()
+        > for k, v in mapping.items():
+        >    env.update(k, v)
+        """
         self._mapping = mapping if mapping is not None else {}
 
     def fork(self):
+        """
+        Creates a copy of the environment.
+        All modifications to the new and original environment will be independent,
+        with the exception of ForwardReferences which updates will be shared.
+        """
         return Environment(mapping=self._mapping.copy())
 
     def lookup(self, identifier: str):
+        """
+        Looks for a value in the environment, throws an UndefinedIdentifier exception if it is not found.
+        """
         try:
             value = self._mapping[identifier]
             if isinstance(value, ForwardReference):
@@ -59,12 +75,23 @@ class Environment:
             raise UndefinedIdentifier(f"{identifier} is not defined")
 
     def update(self, identifier: str, value):
+        """
+        Binds the identifier to a new value.
+        If it was already bound to something, it is rebound.
+        """
         self._mapping[identifier] = value
 
     def allocate_forward_reference(self, identifier: str):
+        """
+        Allocates an empty forward reference.
+        """
         self._mapping[identifier] = ForwardReference(identifier)
 
     def fill_forward_reference(self, identifier: str, value):
+        """
+        Sets a value of an empty forward reference to something.
+        This update can be performed from any fork and is reflected with all other forks sharing this reference.
+        """
         try:
             ref = self._mapping[identifier]
             if not isinstance(ref, ForwardReference):
@@ -78,8 +105,14 @@ class Environment:
 
 
 def empty_environment() -> Environment:
+    """
+    Returns an empty environment.
+    """
     return Environment()
 
 
 def environment_with_builtins(builtins: dict) -> Environment:
+    """
+    Returns an environment with predefined values.
+    """
     return Environment(mapping=builtins)

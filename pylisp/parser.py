@@ -1,3 +1,5 @@
+from typing import List
+
 from parsy import regex, string, generate
 
 from pylisp.ast import *
@@ -34,8 +36,14 @@ class Parser(object):
         self._expr = number_literal | string_literal | quote | symbol | exprlist
         self._file = self._expr.many()
 
-    def parse_expr(self, code):
+    def parse_expr(self, code: str) -> Tree:
+        """
+        Parses a single expression and returns an AST.
+        """
         return self._expr.parse(code)
 
-    def parse_file(self, code):
+    def parse_file(self, code: str) -> List[Tree]:
+        """
+        Parses a list of expressions (separated by whitespace) and returns list of ASTs of each expression.
+        """
         return self._file.parse(code)

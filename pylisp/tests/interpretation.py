@@ -6,6 +6,7 @@ from pylisp.builtins import builtins
 from pylisp.environment import environment_with_builtins
 from pylisp.parser import Parser
 
+
 def parse_and_run(code):
     par = Parser()
     ast = par.parse_expr(code)

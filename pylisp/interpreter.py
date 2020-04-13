@@ -7,6 +7,9 @@ from pylisp.parser import Parser
 
 
 class ConsCell:
+    """
+    A basic building block of a LISP list.
+    """
     def __init__(self, head, tail):
         self._head = head
         self._tail = tail
@@ -24,6 +27,9 @@ class ConsCell:
 
 
 class Symbol:
+    """
+    A name in the program, used as function argument names, bindings etc.
+    """
     def __init__(self, name):
         self.name = name
 
@@ -36,16 +42,22 @@ class Symbol:
         return False
 
 
-LispList = Union[ConsCell, None]
+LispList = Union[ConsCell, None]  # a LISP list is either a ConsCell or nil (None)
 
 
 def python_list_to_lisp(lst: list) -> LispList:
+    """
+    Converts a Python list to a LISP list.
+    """
     if len(lst) == 0:
         return None
     return ConsCell(lst[0], python_list_to_lisp(lst[1:]))
 
 
 def lisp_list_is_valid(lst) -> bool:
+    """
+    Checks if a LISP list is valid.
+    """
     if lst is None:
         return True
     if isinstance(lst, ConsCell):
@@ -54,6 +66,9 @@ def lisp_list_is_valid(lst) -> bool:
 
 
 def lisp_list_length(lst) -> int:
+    """
+    Returns the length of a valid LISP list.
+    """
     if lst is None:
         return 0
     if isinstance(lst, ConsCell):
@@ -62,6 +77,9 @@ def lisp_list_length(lst) -> int:
 
 
 def lisp_list_to_python(lst) -> list:
+    """
+    Converts a valid LISP list to a Python list.
+    """
     if not lisp_list_is_valid(lst):
         raise InvalidList(f"Expected a valid list, got {lisp_data_to_str(lst)}")
     # this is the simple solution but as it creates new lists instead of reusing the old one it can be O(N^2)
@@ -81,19 +99,29 @@ def lisp_list_to_python(lst) -> list:
 
 
 class Builtin:
-    def __init__(self, name, arity):
+    """
+    Represents builtin operations.
+    Such an operation is called with its environment and the provided arguments' code values,
+    a lot of interpretation logic actually happens in the builtins implementations.
+    """
+    def __init__(self, name, arity, doc):
         """
         name - name of the operator used to invoke it
         arity - arguments count, if None the operator is Vararg
         """
         self.name = name
         self.arity = arity
+        self.doc = doc
 
     def __call__(self, *args, **kwargs):
         raise NotImplementedError
 
 
 def lisp_list_to_str(lst: LispList) -> str:
+    """
+    Helper function to convert a LISP list to a string,
+    special care is taken to also handle invalid lists.
+    """
     def helper(lst, acc: List[str]) -> str:
         if isinstance(lst, ConsCell):
             return helper(lst.tail(), acc + [lisp_data_to_str(lst.head())])
@@ -106,6 +134,9 @@ def lisp_list_to_str(lst: LispList) -> str:
 
 
 def lisp_data_to_str(data):
+    """
+    Converts our LISP data into a pretty string representation
+    """
     if isinstance(data, Symbol):
         return data.name
     if isinstance(data, ConsCell) or data is None:
@@ -141,6 +172,9 @@ def represent_code(tree: Tree):
 
 
 def interpret(term, env: Environment):
+    """
+    Interprets the given code value in the environment
+    """
     # a list is executed according to its specific semantics (it can be a builtin, a macro or a function call)
     if isinstance(term, ConsCell):
         return interpret_sexpr(term, env)
@@ -152,6 +186,9 @@ def interpret(term, env: Environment):
 
 
 def interpret_sexpr(sexpr: ConsCell, env: Environment):
+    """
+    A helper function to interpret a list of expressions - usually a function or builtin application
+    """
     op = interpret(sexpr.head(), env)
     args = lisp_list_to_python(sexpr.tail())
     
@@ -178,6 +215,9 @@ def interpret_list(terms: Iterable[Tree], env: Environment) -> list:
 
 
 def interpret_file(file: IO, env: Environment):
+    """
+    Reads a provided file and interprets all contained lines, mutating the provided environment
+    """
     code = file.read()
     ast = Parser().parse_file(code)
     for statement in map(represent_code, ast):
