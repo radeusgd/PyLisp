@@ -311,7 +311,7 @@ def require(env: Environment, path):
         with open(path) as f:
             interpret_file(f, env)
     except IOError as e:
-        print(e)
+        raise LispError(str(e)) from e
 
 
 @register_builtin(1, "help!")
