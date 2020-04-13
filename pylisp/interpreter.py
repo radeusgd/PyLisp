@@ -1,4 +1,4 @@
-from typing import Iterable, IO
+from typing import Iterable, IO, Union, List
 
 from pylisp.ast import *
 from pylisp.environment import Environment
@@ -6,17 +6,7 @@ from pylisp.errors import CannotCall, WrongOperatorUsage
 from pylisp.parser import Parser
 
 
-class List:
-    def __len__(self):
-        raise NotImplementedError()
-
-
-class Nil(List):
-    def __len__(self):
-        return 0
-
-
-class Cons(List):
+class ConsCell:
     def __init__(self, head, tail):
         self._head = head
         self._tail = tail
@@ -27,38 +17,42 @@ class Cons(List):
     def tail(self):
         return self._tail
 
-    def __len__(self):
-        return 1 + len(self.tail())
-
 
 class Symbol:
     def __init__(self, name):
         self.name = name
 
 
-def python_list_to_lisp(lst: list) -> List:
+LispList = Union[ConsCell, None]
+
+
+def python_list_to_lisp(lst: list) -> LispList:
     if len(lst) == 0:
-        return Nil()
-    return Cons(lst[0], python_list_to_lisp(lst[1:]))
+        return None
+    return ConsCell(lst[0], python_list_to_lisp(lst[1:]))
 
 
-def lisp_list_to_python(lst: List) -> list:
+def lisp_list_length(lst: LispList) -> int:
+    if lst is None:
+        return 0
+    return 1 + lisp_list_length(lst.tail())
+
+
+def lisp_list_to_python(lst: LispList) -> list:
     # this is the simple solution but as it creates new lists instead of reusing the old one it can be O(N^2)
     # if isinstance(lst, Cons):
     #     return [lst.head] + lisp_list_to_python(lst.tail)
     # return []
-    result = [None] * len(lst)
+    if lst is None:
+        return []
+
+    result = [None] * lisp_list_length(lst)
     idx = 0
-    while isinstance(lst, Cons):
+    while isinstance(lst, ConsCell):
         result[idx] = lst.head()
         idx += 1
         lst = lst.tail()
     return result
-
-
-class Symbol:
-    def __init__(self, name):
-        self.name = name
 
 
 class Builtin:
@@ -72,6 +66,30 @@ class Builtin:
 
     def __call__(self, *args, **kwargs):
         raise NotImplementedError
+
+
+def lisp_list_to_str(lst: LispList) -> str:
+    def helper(lst, acc: List[str]) -> str:
+        if isinstance(lst, ConsCell):
+            return  helper(lst.tail(), acc + [lisp_data_to_str(lst.head())])
+        if lst is None:
+            return " ".join(acc)
+
+        # invalid list case
+        return " ".join(acc) + " . " + lisp_data_to_str(lst)
+    return "(" + helper(lst, []) + ")"
+
+
+def lisp_data_to_str(data):
+    if isinstance(data, Symbol):
+        return data.name
+    if isinstance(data, ConsCell) or data is None:
+        return lisp_list_to_str(data)
+    if isinstance(data, Builtin):
+        return f"<builtin operator {data.name}>"
+    if isinstance(data, str):
+        return f"\"{data}\""
+    return str(data)
 
 
 def represent_code(tree: Tree):
@@ -99,7 +117,7 @@ def represent_code(tree: Tree):
 
 def interpret(term, env: Environment):
     # a list is executed according to its specific semantics (it can be a builtin, a macro or a function call)
-    if isinstance(term, Cons):
+    if isinstance(term, ConsCell):
         return interpret_sexpr(term, env)
     # a symbol is evaluated based on the environment to the value that is bound to it
     elif isinstance(term, Symbol):
@@ -108,7 +126,7 @@ def interpret(term, env: Environment):
     return term
 
 
-def interpret_sexpr(sexpr: Cons, env: Environment):
+def interpret_sexpr(sexpr: ConsCell, env: Environment):
     op = interpret(sexpr.head(), env)
     args = lisp_list_to_python(sexpr.tail())
     

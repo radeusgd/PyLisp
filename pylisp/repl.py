@@ -1,9 +1,11 @@
 from traceback import print_exc
 
+from parsy import ParseError
+
 from pylisp.environment import environment_with_builtins
 from pylisp.builtins import builtins
 from pylisp.errors import LispError
-from pylisp.interpreter import represent_code, interpret
+from pylisp.interpreter import represent_code, interpret, lisp_data_to_str
 from pylisp.parser import Parser
 
 class Repl:
@@ -14,12 +16,14 @@ class Repl:
     def eval(self, code: str):
         try:
             ast = self.parser.parse_expr(code)
-            print(ast)  # TODO remove debug
             code = represent_code(ast)
+            print(lisp_data_to_str(code))
             res = interpret(code, self.env)
-            print(res)
-        except LispError:
-            print_exc()
+            print(lisp_data_to_str(res))
+        except LispError as e:
+            print("Runtime error:", e)
+        except ParseError as e:
+            print("Parse error:", e)
 
     def run(self):
         while True:

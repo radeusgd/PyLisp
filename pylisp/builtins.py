@@ -1,7 +1,7 @@
 from pylisp.ast import Identifier, ExpressionList
 from pylisp.environment import Environment
 from pylisp.errors import OutOfBounds, WrongOperatorUsage, LispError
-from pylisp.interpreter import Builtin, interpret, interpret_list, interpret_file
+from pylisp.interpreter import Builtin, interpret, interpret_list, interpret_file, ConsCell, python_list_to_lisp
 
 
 class FuncBuiltin(Builtin):
@@ -169,23 +169,26 @@ def block_get(env: Environment, block, idx, value):
 @register_vararg_builtin("list")
 def list_make(env: Environment, *args):
     args = interpret_list(args, env)
-    return args
+    return python_list_to_lisp(args)
+
+
+register_eager_binary_builtin("cons", lambda h, t: ConsCell(h, t))
 
 
 @register_builtin(1, "head")
 def list_head(env: Environment, lst):
     lst = interpret(lst, env)
-    if not isinstance(lst, list):
-        raise LispError("head applied to not a list")
-    return lst[0]
+    if not isinstance(lst, ConsCell):
+        raise LispError("head can only be applied to a non-empty list")
+    return lst.head()
 
 
 @register_builtin(1, "tail")
 def list_tail(env: Environment, lst):
     lst = interpret(lst, env)
-    if not isinstance(lst, list):
-        raise LispError("head applied to not a list")
-    return lst[1:]
+    if not isinstance(lst, ConsCell):
+        raise LispError("tail can only be applied to a non-empty list")
+    return lst.tail()
 
 
 # TODO maybe this can be a macro in the future
