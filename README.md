@@ -11,6 +11,7 @@ To install run `pip install .`.
 Usage: 
 `pylisp` to launch REPL, `pylisp program.cl` to execute a script.
 
+If you want to run the test suite, you can use the script `run_tests.sh`.
 ## Language
 The language is mostly focused on functional aspects, but it has some imperative structures.
 It's eagerly executed and uses static binding in closures.
