@@ -72,14 +72,18 @@ def register_vararg_builtin(name=None):
 @register_builtin(2)
 def let(env: Environment, binding, body):  # this function could be a macro but is kept for simplicity of tests
     """
-    (let (name value) body)
     Binds result of value to name inside of body.
+    (let (name value) body)
     """
     return letrec(env, python_list_to_lisp([binding]), body)
 
 
 @register_builtin(2)
 def letrec(env: Environment, bindings, body):
+    """
+    Allows for mutually recursive bindings.
+    (letrec ((name1 value1) ...) body)
+    """
     def form_error():
         raise LispError(f"Wrong let form: (letrec {lisp_data_to_str(bindings)} ...)")
 
@@ -107,25 +111,46 @@ def letrec(env: Environment, bindings, body):
 
 @register_builtin(2, "define!")
 def define(env: Environment, name, body):
+    """
+    Adds a new definition to the current environment.
+    (define! name value)
+    """
     if not isinstance(name, Symbol):
         raise LispError(f"You can only bind to symbols, not to: {lisp_data_to_str(name)}")
     inner = interpret(body, env)
     env.update(name.name, inner)
 
 
+def interpret_ensuring_type(term, env, type):
+    """
+    A helper function that interprets the term and raises an exception if it does not conform to the provided type.
+    """
+    res = interpret(term, env)
+    if not isinstance(res, type):
+        raise LispError(f"{lisp_data_to_str(res)} is not of required type {type.__name__}"
+                        f"\n in {lisp_data_to_str(term)}")
+    return res
+
+
 @register_vararg_builtin("+")
 def plus(env: Environment, *args):
-    return sum(interpret_list(args, env))
+    """
+    Computes the sum.
+    (+ a b)
+    (+ a b c ...)
+    """
+    args = [interpret_ensuring_type(term, env, int) for term in args]
+    return sum(args)
 
 
-def register_eager_binary_builtin(name, func):
+def register_arithmetic_builtin(name, func):
     """
     A helper decorator to register a simple 2 argument operator that expects evaluated arguments.
     Useful for defining basic arithmetic primitives etc.
     """
     def helper(env: Environment, a, b):
-        a_val = interpret(a, env)
-        b_val = interpret(b, env)
+        a_val = interpret_ensuring_type(a, env, int)
+        b_val = interpret_ensuring_type(b, env, int)
         return func(a_val, b_val)
     register_builtin(2, name)(helper)
 
@@ -136,19 +161,23 @@ def divide(a, b):
     return a / b
 
 
-register_eager_binary_builtin("-", lambda a, b: a - b)
-register_eager_binary_builtin("*", lambda a, b: a * b)
-register_eager_binary_builtin("/", divide)
-register_eager_binary_builtin("mod", lambda a, b: a % b)
-register_eager_binary_builtin("=", lambda a, b: a == b)
-register_eager_binary_builtin("<=", lambda a, b: a <= b)
-register_eager_binary_builtin(">=", lambda a, b: a >= b)
-register_eager_binary_builtin("<", lambda a, b: a < b)
-register_eager_binary_builtin(">", lambda a, b: a > b)
+register_arithmetic_builtin("-", lambda a, b: a - b)
+register_arithmetic_builtin("*", lambda a, b: a * b)
+register_arithmetic_builtin("/", divide)
+register_arithmetic_builtin("mod", lambda a, b: a % b)
+register_arithmetic_builtin("=", lambda a, b: a == b)
+register_arithmetic_builtin("<=", lambda a, b: a <= b)
+register_arithmetic_builtin(">=", lambda a, b: a >= b)
+register_arithmetic_builtin("<", lambda a, b: a < b)
+register_arithmetic_builtin(">", lambda a, b: a > b)
 
 
 @register_builtin(3, "if")
 def conditional(env: Environment, cond, branch_true, branch_else):
+    """
+    Branch condition.
+    (if condition true_branch false_branch)
+    """
     cond = interpret(cond, env)
     if cond:
         return interpret(branch_true, env)
@@ -158,6 +187,10 @@ def conditional(env: Environment, cond, branch_true, branch_else):
 
 @register_builtin(2)
 def fun(env: Environment, args, body):
+    """
+    Creates a lambda function.
+    (fun (argnames ...) body)
+    """
     def process_arg(arg):
         if not isinstance(arg, Symbol):
             raise LispError(f"Function arguments in the definition have to be symbols"
@@ -180,6 +213,12 @@ def fun(env: Environment, args, body):
 
 @register_builtin(2)
 def macro(env: Environment, args, body):
+    """
+    Creates a macro function.
+    Its arguments are passed as code values (not evaluated).
+    It should return a code value that will then be executed in the context of the macro call.
+    (macro (argnames ...) body)
+    """
     def process_arg(arg):
         if not isinstance(arg, Symbol):
             raise LispError(f"Macro arguments in the definition have to be symbols"
@@ -202,6 +241,12 @@ def macro(env: Environment, args, body):
 
 @register_vararg_builtin()
 def begin(env: Environment, *args):
+    """
+    Defines a code block.
+    Multiple expressions in the block are evaluated sequentially.
+    Result of the code block is the result of the last expression.
+    (block exprs...)
+    """
     return interpret_list(args, env)[-1]  # return the value of the last statement
 
 
@@ -228,6 +273,10 @@ class Block:
 
 @register_builtin(1, "alloc!")
 def block_alloc(env: Environment, size):
+    """
+    Allocates an array.
+    (alloc! n)
+    """
     size = interpret(size, env)
     if not isinstance(size, int):
         raise LispError("alloc! needs an integer")
@@ -236,38 +285,48 @@ def block_alloc(env: Environment, size):
 
 @register_builtin(2, "get!")
 def block_get(env: Environment, block, idx):
-    block = interpret(block, env)
-    idx = interpret(idx, env)
-    if not isinstance(block, Block):
-        raise LispError("get! works only on blocks")
-    if not isinstance(idx, int):
-        raise LispError("get! idx has to be an integer")
+    block = interpret_ensuring_type(block, env, Block)
+    idx = interpret_ensuring_type(idx, env, int)
     return block.get(idx)
 
 
 @register_builtin(3, "set!")
 def block_get(env: Environment, block, idx, value):
-    block = interpret(block, env)
-    idx = interpret(idx, env)
+    block = interpret_ensuring_type(block, env, Block)
+    idx = interpret_ensuring_type(idx, env, int)
     value = interpret(value, env)
-    if not isinstance(block, Block):
-        raise LispError("set! works only on blocks")
-    if not isinstance(idx, int):
-        raise LispError("set! idx has to be an integer")
     return block.set(idx, value)
 
 
 @register_vararg_builtin("list")
 def list_make(env: Environment, *args):
+    """
+    Creates a list.
+    (list a b c) returns (a b c)
+    (list args...)
+    """
     args = interpret_list(args, env)
     return python_list_to_lisp(args)
 
 
-register_eager_binary_builtin("cons", lambda h, t: ConsCell(h, t))
+@register_builtin(2)
+def cons(env: Environment, head, tail):
+    """
+    Creates a cons-cell.
+    (cons head tail)
+
+    (cons 1 nil) returns (1)
+    """
+    [h, t] = interpret_list([head, tail], env)
+    return ConsCell(h, t)
 
 
 @register_builtin(1, "head")
 def list_head(env: Environment, lst):
+    """
+    Returns the head of a non-empty list.
+    (head lst)
+    """
     lst = interpret(lst, env)
     if not isinstance(lst, ConsCell):
         raise LispError("head can only be applied to a non-empty list")
@@ -276,6 +335,10 @@ def list_head(env: Environment, lst):
 
 @register_builtin(1, "tail")
 def list_tail(env: Environment, lst):
+    """
+    Returns the tail of a non-empty list.
+    (tail lst)
+    """
     lst = interpret(lst, env)
     if not isinstance(lst, ConsCell):
         raise LispError("tail can only be applied to a non-empty list")
@@ -284,6 +347,11 @@ def list_tail(env: Environment, lst):
 
 @register_builtin(1, "quote")
 def quote(env: Environment, code):
+    """
+    Returns a 'quote' - does not evaluate its argument but returns it as a code value:
+    (quote (1 2 3)) returns (1 2 3)
+    (quote arg) or 'arg (syntax sugar)
+    """
     return code
 
 
@@ -316,6 +384,11 @@ def read_line(_: Environment):
 
 @register_builtin(1, "require!")
 def require(env: Environment, path):
+    """
+    Loads a file and executes it.
+    A rudimentary import mechanic.
+    (require! "module.cl")
+    """
     path = interpret(path, env)
     if not isinstance(path, str):
         raise LispError("Can only import a string path")
@@ -328,6 +401,10 @@ def require(env: Environment, path):
 
 @register_builtin(1, "help!")
 def builtin_help(env: Environment, builtin):
+    """
+    Writes help information about a builtin.
+    (help! builtin)
+    """
     builtin = interpret(builtin, env)
     if not isinstance(builtin, Builtin):
         print("Not a builtin operator")
@@ -339,4 +416,19 @@ def builtin_help(env: Environment, builtin):
     print(builtin.doc)
 
 
-register_eager_binary_builtin("randint!", lambda a, b: random.randint(a, b))
+register_arithmetic_builtin("randint!", lambda a, b: random.randint(a, b))
+
+
+@register_builtin(1, "int?")
+def isint(env: Environment, arg):
+    return isinstance(interpret(arg, env), int)
+
+
+@register_builtin(1, "str?")
+def isstr(env: Environment, arg):
+    return isinstance(interpret(arg, env), str)
+
+
+@register_builtin(1, "list?")
+def islist(env: Environment, arg):
+    return lisp_list_is_valid(interpret(arg, env))

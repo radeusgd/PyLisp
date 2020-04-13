@@ -26,7 +26,8 @@ class Repl(Cmd):
             ast = self.parser.parse_expr(line)
             code = represent_code(ast)
             res = interpret(code, self.env)
-            print(lisp_data_to_str(res))
+            if res is not None or self._debug:
+                print(lisp_data_to_str(res))
         except LispError as e:
             if self._debug:
                 print_exc()
@@ -35,5 +36,5 @@ class Repl(Cmd):
             print("Parse error:", e)
 
     def do_help(self, arg):
-        print("Help is not implemented")
+        print("Available builtins are:", " ".join(builtins.keys()))
 
